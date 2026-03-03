@@ -21,7 +21,7 @@ SystemManager::SystemManager(
         smSchedulingCounter(0),
         oldDataCount(0),
         rcConnected(false),
-        batteryData({PMData_t{}, MAV_BATTERY_CHARGE_STATE_UNDEFINED, 0, 0}) {}
+        batteryData({PMData_t{}, MAV_BATTERY_CHARGE_STATE_OK, 0, 0}) {}
 
 void SystemManager::smUpdate() {
     // Kick the watchdog
@@ -35,6 +35,7 @@ void SystemManager::smUpdate() {
         sendRCDataToAttitudeManager(rcData);
 
         if (!rcConnected) {
+            sendStatusTextToTelemetryManager(MAV_SEVERITY_INFO, "RC Connected");
             loggerDriver->log("RC Connected");
             rcConnected = true;
         }
@@ -42,6 +43,7 @@ void SystemManager::smUpdate() {
         oldDataCount += 1;
 
         if ((oldDataCount * SM_UPDATE_LOOP_DELAY_MS > SM_RC_TIMEOUT_MS) && rcConnected) {
+            sendStatusTextToTelemetryManager(MAV_SEVERITY_CRITICAL, "RC Disconnected");
             loggerDriver->log("RC Disconnected");
             rcConnected = false;
         }
@@ -119,12 +121,15 @@ void SystemManager::updateBatteryFSM() {
         if (currentBatteryState != batteryData.chargeState) {
             switch (batteryData.chargeState) {
                 case MAV_BATTERY_CHARGE_STATE_OK:
+                    sendStatusTextToTelemetryManager(MAV_SEVERITY_INFO, "Battery State: OK");
                     loggerDriver->log("Battery State: OK");
                     break;
                 case MAV_BATTERY_CHARGE_STATE_LOW:
+                    sendStatusTextToTelemetryManager(MAV_SEVERITY_WARNING, "Battery State: LOW");
                     loggerDriver->log("Battery State: LOW");
                     break;
                 case MAV_BATTERY_CHARGE_STATE_CRITICAL:
+                    sendStatusTextToTelemetryManager(MAV_SEVERITY_CRITICAL, "Battery State: CRITICAL");
                     loggerDriver->log("Battery State: CRITICAL");
                     break;
                 default:
@@ -188,6 +193,11 @@ void SystemManager::sendBatteryDataToTelemetryManager(const BatteryData_t &batte
         batteryData.chargeState
     );
     tmQueue->push(&batteryDataMsg);
+}
+
+void SystemManager::sendStatusTextToTelemetryManager(MAV_SEVERITY severity, const char text[50], uint16_t id, uint8_t chunk_seq) {
+    TMMessage_t statusTextMsg = statusTextPack(systemUtilsDriver->getCurrentTimestampMs(), severity, text, id, chunk_seq);
+    tmQueue->push(&statusTextMsg);
 }
 
 void SystemManager::sendMessagesToLogger() {
