@@ -10,12 +10,9 @@ extern "C" {
 #endif
 
 /* overriding _write to redirect puts()/printf() to SWO */
-int _write(int file, char *ptr, int len)
-{
-  if( osMutexAcquire(itmMutex, osWaitForever) == osOK )
-  {
-    for (int DataIdx = 0; DataIdx < len; DataIdx++)
-    {
+int _write(int file, char *ptr, int len) {
+  if( osMutexAcquire(itmMutex, osWaitForever) == osOK ) {
+    for (int DataIdx = 0; DataIdx < len; DataIdx++) {
       ITM_SendChar(ptr[DataIdx]);
     }
     osMutexRelease(itmMutex);
@@ -55,7 +52,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
-  if(huart == rcHandle->getHuart()) {
+  if (huart == rcHandle->getHuart()) {
     uint32_t error = HAL_UART_GetError(huart);
 
     if (error & HAL_UART_ERROR_PE) {
@@ -99,21 +96,25 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 }
 
 void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
-    if (hspi == imuHandle->getSPI()) {
-      imuHandle->txRxCallback();
-    }
+  if (hspi == imuHandle->getSPI()) {
+    imuHandle->txRxCallback();
+  }
 }
 
 void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c) {
-    if (hi2c == pmHandle->getI2C()) {
-      pmHandle->I2C_MemRxCpltCallback();
-    }
+  if (hi2c == pmHandle->getI2C()) {
+    pmHandle->I2C_MemRxCpltCallback();
+  } else if(hi2c == barometerHandle->getI2C()) {
+  barometerHandle->rxCallback();
+  }
 }
 
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
-    if (hi2c == pmHandle->getI2C()) {
-      pmHandle->I2C_ErrorCallback();
-    }
+  if (hi2c == pmHandle->getI2C()) {
+    pmHandle->I2C_ErrorCallback();
+  } else if (hi2c == barometerHandle->getI2C()) {
+    barometerHandle->errorCallback();
+  }
 }
 
 #ifdef __cplusplus
